@@ -7,6 +7,10 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_groq import ChatGroq
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
+from langchain.prompts import ChatPromptTemplate
+from langchain.chains import create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
+
 import json
 import uvicorn
  
@@ -19,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 app.mount("/backend/output", StaticFiles(directory="output"), name="output")
 # Allow requests from your frontend
 # Enable CORS for frontend
-origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+origins = ["http://localhost:5173", "http://127.0.0.1:5173","http:/10.10.20.151:5173"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -44,61 +48,16 @@ print("Retriever loaded:", retriever)
 # Initialize Groq LLM
 llm = ChatGroq(
     model="groq/compound",
-    api_key="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",  # Replace with your key
-    temperature=0.7
+    api_key="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", 
 )
- 
-# -----------------------------
-# Prompt template
-# prompt_template = """
-# You are a helpful AI tutor. Answer the user's question based on the retrieved documents.
-# Rules:
-# 1. Provide a clear and concise answer.
-# 2. Include the image
-# 3. Return output in JSON format:
-# {{
-#   "answer": "<your answer text>",
-#   "images": [{{"url": "<image_url>"}}]
-# }}
-# If no images, return an empty list for images.
- 
-# Context from documents:
-# {context}
- 
-# Question:
-# {question}
- 
-# Respond in JSON format as instructed.
-# """
 
-prompt_template = """
-You are a helpful AI tutor. Answer the user's question based on the retrieved documents.
-Rules:
-1. Provide a clear and concise answer.
-2. Include the image if available.
-   "Use the given context to answer the question. "
-    "If you don't know the answer, say you don't know. "
-    "Use three sentences maximum and keep the answer concise. "
-    "Don't guide with any external resources. "
-    "Strictly follow the instructions and language used in the original context. "
-    "If the context contains images in Markdown format like ![](image_url), "
-    "extract the image URL and include it in the response under 'image_data'. "
-    "Always return the final response in this JSON format:\n"
-    "If there any equation in the context it should be converted in human-readable format"
-    "{{\n"
-    "  'answer': '<Only use for LLM text Response>',\n"
-    "  'images': [{{"url": "<image_url>"}}]
-    "}}\n"
  
-    "Context: {context}"
-"""
- 
- 
-prompt_template = """
+system_prompt = (
+    """
 You are a helpful AI tutor. Use ONLY the provided Context to answer the user's question.
  
 RULES (must be followed exactly):
-1) Answer in at most THREE sentences and be concise.
+1) Explain the solution more detailed step by setp it should be clear.
 2) Convert any equations in the Context to human-readable math (plain text).
 3) If the Context contains images in Markdown (e.g. ![](images/abc.jpg)), extract those URLs and include them in the "images" array.
 4) Do NOT reference or suggest external resources.
@@ -113,24 +72,21 @@ RULES (must be followed exactly):
    - "response" must be plain text (not JSON or escaped JSON).
    - Use double quotes for JSON keys and string values.
    - If no images are present, "images" must be an empty array: [].
- 
+7) If user with greetings responsed with a greeting, you should return a greeting message and no answer.
 Context: {context}
 """
- 
-prompt = PromptTemplate(
-    input_variables=["context", "question"],
-    template=prompt_template
 )
- 
-# -----------------------------
-# Build RAG QA chain
-qa = RetrievalQA.from_chain_type(
-    llm=llm,
-    chain_type="stuff",
-    retriever=retriever,
-    return_source_documents=True,
-    chain_type_kwargs={"prompt": prompt}
+
+
+prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", system_prompt),
+        ("human", "{input}"),
+    ]
 )
+
+question_answer_chain = create_stuff_documents_chain(llm, prompt)
+chain = create_retrieval_chain(retriever, question_answer_chain)
  
 # -----------------------------
 # Pydantic model for request
@@ -149,30 +105,15 @@ async def ask_question(request: QueryRequest):
     question = request.question.strip()
     if not question:
         return {"response": "Please ask a valid question.", "images": []}
-    greetings = ["hi", "hello", "hey", "good morning", "good evening", "good afternoon"]
-    if question.lower() in greetings:
-        return {
-            "response": "Hello! How can I help you today?",
-            "images": [],
-            "has_images": False
-        }
-    farewells = ["bye", "goodbye", "see you", "take care", "see you later", "good night"]
-    if any(word in question for word in farewells):
-        return {
-            "response": "Goodbye! Have a great day!",
-            "images": [],
-            "has_images": False
-        }
- 
     # Retrieve session history (not used in this example, but saved)
     history = session_store.get(session_id, [])
  
     # Invoke LLM via RAG
-    result = qa.invoke({"query": question})  # ✅ FIXED: input key must be "query"
+    result = chain.invoke({"input": question})  # ✅ FIXED: input key must be "query"
     print(f"LLM response: {result}")
     # Try parsing JSON from LLM output
     try:
-        parsed = json.loads(result['result'])
+        parsed = json.loads(result['answer'])
         answer_text = parsed.get("answer", "")
         images = parsed.get("images", [])
     except json.JSONDecodeError:
