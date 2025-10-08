@@ -23,7 +23,8 @@ from fastapi.staticfiles import StaticFiles
 app.mount("/backend/output", StaticFiles(directory="output"), name="output")
 # Allow requests from your frontend
 # Enable CORS for frontend
-origins = ["http://localhost:5173", "http://127.0.0.1:5173","http:/10.10.20.151:5173"]
+origins = ["http://localhost:5173", "http://127.0.0.1:5173","http://10.10.20.151:5173"]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
