@@ -10,7 +10,7 @@ export default function ChatBot() {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
-  const API_URL = 'http://127.0.0.1:8000/ask';
+  const API_URL = 'http://10.10.20.151:8100/ask';
 
   // Generate or retrieve session_id
   const [sessionId] = useState(() => {
