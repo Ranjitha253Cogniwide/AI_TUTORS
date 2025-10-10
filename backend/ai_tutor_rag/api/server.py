@@ -10,9 +10,10 @@ from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 import json
 import os
+import dotenv
 
 from prompt import Prompts
-
+load_dotenv()
 
 class QueryRequest(BaseModel):
     session_id: str
@@ -30,7 +31,7 @@ class RAGServer:
         self.embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
         self.llm = ChatGroq(
             model="groq/compound",
-            api_key="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",
+            api_key=os.getenv("GROQ_API_KEY"),
             temperature=0.7
         )
         self.session_store: Dict[str, List[Dict[str, str]]] = {}
