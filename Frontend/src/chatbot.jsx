@@ -10,7 +10,7 @@ export default function ChatBot() {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
-  const API_URL = 'http://10.10.20.151:8100/ask';
+  const API_URL = 'http://127.0.0.1:8100/ask';
 
   // Generate or retrieve session_id
   const [sessionId] = useState(() => {
@@ -51,12 +51,17 @@ export default function ChatBot() {
 
       // Ensure images is an array
       const images = Array.isArray(data.images) ? data.images : [];
-
+      console.log(images)
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: data.response,
-        images: images
+        images: images,
+        type: data.type,
       }]);
+
+      if (data.type =='cleared'){
+        setMessages([{ role: 'assistant', content: starter, images: [] }])
+      }
     } catch (err) {
       console.error('Send error', err);
       setMessages(prev => [...prev, { role: 'assistant', content: 'Oops — could not reach the server. Try again.', images: [] }]);
@@ -94,31 +99,53 @@ export default function ChatBot() {
                 {msg.role === 'user' ? <User className="w-5 h-5 text-white" /> : <img src={readingImg} alt="Tutor" className="w-5 h-5 rounded-full" />}
               </div>
 
-              <div className={`max-w-[75%] rounded-2xl px-4 py-3 ${msg.role === 'user' ? 'bg-sky-500 text-white' : 'bg-white text-gray-900 border border-indigo-200'} shadow`}>
-                <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+              <div
+  className={`max-w-[75%] rounded-2xl px-5 py-4 transition-all duration-300 
+    shadow-md border 
+    ${msg.role === 'user' 
+      ? 'bg-sky-500 text-white border-sky-600' 
+      : 'bg-white text-gray-900 border-indigo-200'}`}
+>
+  {/* Type label */}
+  <small className={`block text-xs text-right ${msg.role === 'user' ? 'text-sky-100' : 'text-indigo-400'}`}>
+    {msg.type}
+  </small>
 
-                {/* Render images */}
-                {msg.images && msg.images.length > 0 && (
-                  <div className="mt-2 space-y-2">
-                    <div className="flex items-center gap-2 text-sm text-blue-600">
-                      <ImageIcon className="w-4 h-4" />
-                      <span>Related diagrams:</span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {msg.images.map((img, i) => (
-                        <div key={i} className="border border-gray-200 rounded-lg overflow-hidden bg-white">
-                          <img
-                              src={`http://10.10.20.151:8100/backend/output/book8/math8/${img.url}`} // prepend backend host
-                              alt={'Diagram'}  
-                              className="w-full h-auto max-h-48 object-contain"
-                              onError={(e) => { e.target.style.display = 'none'; }}
-                            />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+  {/* Message content */}
+  {/* Message content */}
+<div
+  className="mt-1 whitespace-pre-wrap break-words leading-relaxed text-sm sm:text-base"
+  dangerouslySetInnerHTML={{ __html: msg.content }}
+/>
+
+
+  {/* Render images */}
+  {msg.images?.length > 0 && (
+    <div className="mt-4 space-y-2">
+      <div className="flex items-center gap-2 text-sm font-medium text-blue-600">
+        <ImageIcon className="w-4 h-4" />
+        <span>Related diagrams:</span>
+      </div>
+      
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+        {msg.images.map((img, i) => (
+          <div
+            key={i}
+            className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow duration-200"
+          >
+            <img
+              src={`http://127.0.0.1:8100/backend/output/book8/math8/images/${img}`}
+              alt="Diagram"
+              className="w-full h-auto max-h-72 object-contain"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  )}
+</div>
+
             </div>
           </div>
         ))}
