@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect,use } from 'react';
+import React, { useState, useRef, useEffect, use} from 'react';
 import { Send, User, Image, Sparkles, Info } from 'lucide-react';
 
 
@@ -61,19 +61,40 @@ export default function ChatBot() {
   };
 
 
+
+
+  // const local = true;
+  // const API_URL = local ? 'http://localhost:8100' : 'https://schooldigitalised.cogniwide.com/api/sd';
+    const API_CONFIG = {
+    local: false,
+    get baseURL() {
+      return this.local ? 'http://localhost:8100' : 'https://schooldigitalised.cogniwide.com/api';
+    },
+    get tutorURL() {
+      return this.local ? `${this.baseURL}/tutor` : `${this.baseURL}/sd/tutor`;
+    },
+    get assignmentURL() {
+      return `${this.baseURL}/assignment`;
+    }
+  };
+
+  
+
+  // Generate or retrieve session_id
+  const [sessionId] = useState(() => {
+    let existing = typeof window !== 'undefined' ? Math.random().toString(36).substr(2, 9) : 'demo';
+    return existing;
+  });
+
+  // Scroll to bottom
+  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  useEffect(() => { scrollToBottom(); }, [messages]);
   useEffect(() => {
-    sendMessage('clear')
-    initialMessage(subject)
-
+    initialMessage(subject);
   }, [subject]);
-
-
-  const local = false;
-  const API_URL = local ? 'http://localhost:8100' : 'https://schooldigitalised.cogniwide.com/api/sd';
-
   const initialMessage = async (subject) => {
 
-    const response = await fetch(`${API_URL}/tutor/get-initial-response/${subject}`);
+    const response = await fetch(`${API_CONFIG.tutorURL}/get-initial-response/${subject}`);
 
     const data = await response.json();
     setMessages(prev => [...prev, { role: 'assistant', content: data?.response }]);
@@ -100,32 +121,7 @@ export default function ChatBot() {
       setChapter(data?.data || []);
     }
 
-  }
-
-  // Generate or retrieve session_id
-  const [sessionId] = useState(() => {
-    let existing = typeof window !== 'undefined' ? Math.random().toString(36).substr(2, 9) : 'demo';
-    return existing;
-  });
-
-  // Scroll to bottom
-  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  useEffect(() => { scrollToBottom(); }, [messages]);
-
-
-  // Send message to backend
-  const sendMessage = async (text) => {
-  const messageText = (typeof text === 'string' && text.trim()) ? text.trim() : input.trim();
-  if (!messageText || isLoading) return;
-
-  // Hide chapters if user clicked
-  setShowChapters(false);
-  setMessages(prev => 
-    prev.map(msg => msg.role === 'assistant' ? { ...msg, quick_replies: [] } : msg)
-  );
-  setMessages(prev => [...prev, { role: 'user', content: messageText, images: [] }]);
-  setInput('');
-  setIsLoading(true);
+  };
 
   function convertFractionsToMathML(htmlString) {
     htmlString = htmlString.replace(/(\d+)\s*\/\s*(\d+)/g, (_, num, den) => {
@@ -146,37 +142,32 @@ export default function ChatBot() {
   }
 
 
-    const data = await res.json();
-    console.log(data);
+//     const data = await res.json();
+//     console.log(data);
 
-    const images = Array.isArray(data.images) ? data.images : [];
-    setMessages(prev => [...prev, {
-      role: 'assistant',
-      content: data.response.replace(/<\/?strong>/g, '')
-        .replace(
-          /<hint>\s*(.*?)\s*<\/hint>/gs,
-          `<div style="background-color:#e6f3ff; padding:8px; border-radius:8px; font-style: italic;">$1</div>`
-        ).replace(/\*\*(.*?)\*\*/g, '<b>$1</b>'),
-      images: images,
-      type: data.correct_answer,
-      quick_replies: Array.isArray(data.quick_replies) ? data.quick_replies : []
-    }]);
+//     const images = Array.isArray(data.images) ? data.images : [];
+//     setMessages(prev => [...prev, {
+//       role: 'assistant',
+//       content: data.response.replace(/<\/?strong>/g, '')
+//         .replace(
+//           /<hint>\s*(.*?)\s*<\/hint>/gs,
+//           `<div style="background-color:#e6f3ff; padding:8px; border-radius:8px; font-style: italic;">$1</div>`
+//         ).replace(/\*\*(.*?)\*\*/g, '<b>$1</b>'),
+//       images: images,
+//       type: data.correct_answer,
+//       quick_replies: Array.isArray(data.quick_replies) ? data.quick_replies : []
+//     }]);
 
 
-    console.log(data.type);
+//     console.log(data.type);
 
-    if (data.type === 'cleared') {
-      setMessages([{ role: 'assistant', content: starter, images: [] }]);
-      setShowChapters(true); // reset for new session
-    }
-  } catch (err) {
-    console.error('Send error', err);
-    setMessages(prev => [...prev, { role: 'assistant', content: 'Oops — could not reach the server. Try again.', images: [] }]);
-  } finally {
-    setIsLoading(false);
-  }
+//     if (data.type === 'cleared') {
+//       setMessages([{ role: 'assistant', content: starter, images: [] }]);
+//       setShowChapters(true); // reset for new session
+//     }
+//   } 
 
-};
+// ;
 
   const sendmessages = async (text) => {
   const messageText = (typeof text === 'string' && text.trim()) ? text.trim() : input.trim();
@@ -191,7 +182,10 @@ export default function ChatBot() {
   setInput('');
   setIsLoading(true);
       try {
-      const res = await fetch("http://127.0.0.1:8000/assignment/send-message", {
+        let res,data;
+        if (isPdfMode && sessionIds) {
+
+      res = await fetch(`${API_CONFIG.assignmentURL}/send-message`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({//
@@ -205,25 +199,61 @@ export default function ChatBot() {
         throw new Error(errText || 'Network error');
       }
  
-      const data = await res.json();
+      data = await res.json();
  
       setMessages(prev => [
         ...prev,
         { role: 'assistant', content: data.ai_message, images: [] }
       ]);
  
-    } catch (err) {
-      console.error('Send error', err);
+    } else{
+      res = await fetch(`${API_CONFIG.tutorURL}/ask`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId,
+          question: messageText,
+          subject: subject,
+          prompt: prompt,
+          model: selectedModel,
+          custom_prompt: useCustomPrompt? customPrompt : null,
+        }),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || 'Network error');
+      }
+
+      data = await res.json();
+      console.log(data);
+
+      const images = Array.isArray(data.images) ? data.images : [];
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'Oops — could not reach the server. Try again.',
-        images: []
+        content: convertFractionsToMathML(data.response.replace(/<\/?strong>/g, '')
+          .replace(
+            /<hint>\s*(.*?)\s*<\/hint>/gs,
+            `<div style="background-color:#e6f3ff; padding:8px; border-radius:8px; font-style: italic;">$1</div>`
+          ).replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')),
+        images: images,
+        type: data.correct_answer,
+        quick_replies: Array.isArray(data.quick_replies) ? data.quick_replies : []
       }]);
+
+      console.log(data.type);
+
+      if (data.type === 'cleared') {
+        setMessages([{ role: 'assistant', content: starter, images: [] }]);
+        setShowChapters(true); // reset for new session
+      }
+    }} catch (err) {
+      console.error('Send error', err);
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Oops — could not reach the server. Try again.', images: [] }]);
     } finally {
       setIsLoading(false);
     }
-  };
-
+  }
 // ✅ Handle file upload and AI initial question
   const handleUpload = async () => {
     if (!file) {
@@ -236,7 +266,7 @@ export default function ChatBot() {
       const formData = new FormData();
       formData.append("file", file);
  
-      const startRes = await fetch("http://127.0.0.1:8000/assignment/start-session", {
+      const startRes = await fetch(`${API_CONFIG.assignmentURL}/start-session`, {
         method: "POST",
         body: formData,
       });
@@ -276,68 +306,8 @@ export default function ChatBot() {
   };
 
 
-  // Send message to backend
-  const sendMessage = async (text) => {
-    const messageText = (typeof text === 'string' && text.trim()) ? text.trim() : input.trim();
-    if (!messageText || isLoading) return;
 
-    // Hide chapters if user clicked
-    setShowChapters(false);
-    setMessages(prev =>
-      prev.map(msg => msg.role === 'assistant' ? { ...msg, quick_replies: [] } : msg)
-    );
-    setMessages(prev => [...prev, { role: 'user', content: messageText, images: [] }]);
-    setInput('');
-    setIsLoading(true);
-
-    try {
-      const res = await fetch(API_URL + '/tutor/ask', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          session_id: sessionId,
-          question: messageText,
-          subject: subject,
-          prompt: prompt,
-          model: selectedModel,
-          custom_prompt: useCustomPrompt? customPrompt : null,
-        }),
-      });
-
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(errText || 'Network error');
-      }
-
-      const data = await res.json();
-      console.log(data);
-
-      const images = Array.isArray(data.images) ? data.images : [];
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: convertFractionsToMathML(data.response.replace(/<\/?strong>/g, '')
-          .replace(
-            /<hint>\s*(.*?)\s*<\/hint>/gs,
-            `<div style="background-color:#e6f3ff; padding:8px; border-radius:8px; font-style: italic;">$1</div>`
-          ).replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')),
-        images: images,
-        type: data.correct_answer,
-        quick_replies: Array.isArray(data.quick_replies) ? data.quick_replies : []
-      }]);
-
-      console.log(data.type);
-
-      if (data.type === 'cleared') {
-        setMessages([{ role: 'assistant', content: starter, images: [] }]);
-        setShowChapters(true); // reset for new session
-      }
-    } catch (err) {
-      console.error('Send error', err);
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Oops — could not reach the server. Try again.', images: [] }]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+ 
 
   function PromptEditor() {
     const defaultPrompt = `# Math Coach for 7th Grade
@@ -517,7 +487,7 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
   }
     } //
   
-
+  
   return (
     <div className="h-screen w-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex flex-col overflow-hidden">
       {/* Header with gradient and glow effect */}
@@ -933,4 +903,4 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
       `}</style>
     </div>
   );
-}
+};
