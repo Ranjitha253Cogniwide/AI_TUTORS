@@ -97,6 +97,7 @@ class EmbeddingDocuments:
 # Retrieval Chain with Memory
 # ───────────────────────────────────────────────
 
+
 class RetrievalChain:
     def __init__(self,subject: str,prompt:bool, model:str, custom_prompt: str = None):
         self.embeddings = EmbeddingDocuments().embedding_model(
@@ -126,11 +127,14 @@ class RetrievalChain:
         
         print("choosed model:", model)
 
-        # 🧠 Maintain last 10 exchanges
+
+        # Memory for last 20 exchanges
         self.memory = ConversationBufferWindowMemory(
             memory_key="chat_history",
             k=3,
+
             return_messages=True   
+
         )
 
         self.retriever = None
@@ -182,6 +186,8 @@ class RetrievalChain:
             self.get_documents()
 
         chain = self.build_conversational_chain()
+
+
         response = await chain.ainvoke({
             "question": user_input,
             "chat_history": self.memory.chat_memory.messages
@@ -189,3 +195,4 @@ class RetrievalChain:
 
         return response["answer"]
     
+

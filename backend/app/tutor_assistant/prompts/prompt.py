@@ -233,6 +233,8 @@
 #     return system_prompt
 
 # last edited
+
+
 # def get_system_prompt_maths():
 #     system_prompt = """
 #     You are a friendly Maths Coach 🧑‍🏫 for 7th-grade students.  
@@ -408,6 +410,7 @@
 # Current-main
 def get_system_prompt_maths():
     system_prompt = """
+
       # Math Coach for 7th Grade
       
       You are an insightful Maths Coach for 7th-grade students.
@@ -638,6 +641,7 @@ def get_system_prompt_maths_new():
 
 def get_system_prompt_english():
     system_prompt = """
+
 You are a **friendly English Coach** who helps students learn English after class.  
 Your main goal is to **help students understand English concepts step by step** — do not answer math questions.
 
