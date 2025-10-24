@@ -143,8 +143,6 @@ class TokenUsageHandler(BaseCallbackHandler):
         )
 
 
-
-
 class RetrievalChain:
     def __init__(self, subject: str, prompt: bool, model: str, custom_prompt: str = None):
         self.embeddings = EmbeddingDocuments().embedding_model(
@@ -237,7 +235,6 @@ class RetrievalChain:
             self.get_documents()
 
         chain = self.build_conversational_chain()
-
         response = await chain.ainvoke({
             "question": user_input,
             "chat_history": self.memory.chat_memory.messages
@@ -255,3 +252,4 @@ class RetrievalChain:
         }
 
         return result
+

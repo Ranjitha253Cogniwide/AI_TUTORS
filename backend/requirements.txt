@@ -1,3 +1,5 @@
+
+
 langchain==0.3.0
 langchain-core==0.3.0
 langchain-community==0.3.0
@@ -10,7 +12,9 @@ fastapi==0.104.0
 uvicorn[standard]==0.24.0
 langchain-groq
 openai>=1.6.0
+
 pdf2image
 pytesseract
 Pillow
-
+python-multipart
+python-docx

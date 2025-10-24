@@ -58,8 +58,8 @@ async def ask_question(request: QueryRequest):
 
     # Ask the question
     result_raw = await retriever.chat(question)
-    print("raw data:", result_raw)
 
+    print("raw data:", result_raw)
     # Handle dict response
     if isinstance(result_raw, dict):
         result_text = result_raw.get("answer", "")
