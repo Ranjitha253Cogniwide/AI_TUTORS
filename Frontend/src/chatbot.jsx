@@ -159,7 +159,7 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
 
   const local = false;
   const API_URL = local ? 'http://localhost:8100' : 'https://schooldigitalised.cogniwide.com/api/sd';
-const ASSIGNMENT_URL = local ? 'http://localhost:8100' : 'http://127.0.0.1:8000';
+
 
 
   const initialMessage = async (subject) => {
@@ -225,7 +225,7 @@ const ASSIGNMENT_URL = local ? 'http://localhost:8100' : 'http://127.0.0.1:8000'
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const startRes = await fetch(`${ASSIGNMENT_URL}/assignment/start-session`, {
+      const startRes = await fetch(`${API_URL}/assignment/start-session`, {
         method: "POST",
         body: formData,
       });
@@ -287,7 +287,7 @@ const ASSIGNMENT_URL = local ? 'http://localhost:8100' : 'http://127.0.0.1:8000'
       setInput('');
       setIsLoading(true);
       try {
-        const res = await fetch(`${ASSIGNMENT_URL}/assignment/send-message`, {
+        const res = await fetch(`${API_URL}/assignment/send-message`, {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: new URLSearchParams({
