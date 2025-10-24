@@ -10,9 +10,12 @@ from langchain.memory import ConversationBufferWindowMemory
 from langchain.chains import ConversationalRetrievalChain
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
-from app.tutor_assistant.prompts.prompt import get_system_prompt_maths,get_system_prompt_english
+from app.tutor_assistant.prompts.prompt import get_system_prompt_english
 from langchain.chat_models import AzureChatOpenAI
 import openai
+from langchain.callbacks.manager import CallbackManager
+from langchain.callbacks.base import BaseCallbackHandler
+
 
 load_dotenv()
 
@@ -27,6 +30,7 @@ openai.api_base = OPENAI_API_BASE
 openai.api_version = OPENAI_API_VERSION
 openai.api_key = OPENAI_API_KEY
 
+groq_api_key=os.getenv('GROQ_API_KEY')
 # ───────────────────────────────────────────────
 # Tutor Assistant Classes
 # ───────────────────────────────────────────────
@@ -67,8 +71,7 @@ class ChunkData:
         subject_value = metadata_key.split('_')[1]
         grade_value = metadata_key.split('_')[2].split('.')[0]
 
-        print("subject:", subject_value)
-        print("grade:", grade_value)
+    
 
         for i, chunk in enumerate(chunks):
             doc = Document(
@@ -93,31 +96,91 @@ class EmbeddingDocuments:
         )
         db.persist()
         print("✅ Chroma DB created successfully!")
-# ───────────────────────────────────────────────
-# Retrieval Chain with Memory
-# ───────────────────────────────────────────────
+
+
+
+class TokenUsageHandler(BaseCallbackHandler):
+    """Custom handler to record token usage."""
+    def __init__(self):
+        self.input_tokens = 0
+        self.output_tokens = 0
+
+    def on_llm_end(self, response, **kwargs):
+        try:
+            usage = response.llm_output.get("token_usage", {})
+            self.input_tokens += usage.get("prompt_tokens", 0)
+            self.output_tokens += usage.get("completion_tokens", 0)
+        except Exception:
+            pass
+
+    # def get_total_cost(self, model: str):
+    #     # ⚙️ Define cost per 1K tokens for known models (adjust as per actual Groq pricing)
+    #     pricing = {
+    #         "llama-3.1-8b-instant": {"input": 0.00005, "output": 0.00008},
+    #         "qwen/qwen3-32b": {"input": 0.00006, "output": 0.00012},
+    #         "openai/gpt-oss-20b": {"input": 0.00010, "output": 0.00020},
+    #         "gpt-4o-mini": {"input": 0.00015, "output": 0.00060},
+    #     }
+    #     price = pricing.get(model, {"input": 0.0001, "output": 0.0001})
+    #     return round(
+    #         (self.input_tokens / 1000 * price["input"]) +
+    #         (self.output_tokens / 1000 * price["output"]),
+    #         6
+    #     )
+    def get_total_cost(self, model: str):
+        pricing = {
+            "llama-3.1-8b-instant": {"input": 0.00005, "output": 0.00008},
+            "qwen/qwen3-32b": {"input": 0.00006, "output": 0.00012},
+            "openai/gpt-oss-20b": {"input": 0.00010, "output": 0.00020},
+            "azure/gpt-4o-mini": {"input": 0.00015, "output": 0.00060},
+        }
+        model_key = model.lower().strip()
+        price = pricing.get(model_key, {"input": 0.0001, "output": 0.0001})
+        return round(
+            (self.input_tokens / 1000 * price["input"]) +
+            (self.output_tokens / 1000 * price["output"]),
+            6
+        )
+
+
 class RetrievalChain:
-    def __init__(self, subject: str):
-        # Embeddings
+    def __init__(self, subject: str, prompt: bool, model: str, custom_prompt: str = None):
         self.embeddings = EmbeddingDocuments().embedding_model(
             embedding_model='sentence-transformers/all-MiniLM-L6-v2'
         )
 
-        # System prompt
-        self.system_prompt = get_system_prompt_maths() if subject == "maths" else get_system_prompt_english()
+        if subject == "maths":
+            self.system_prompt = custom_prompt
+        else:
+            self.system_prompt = get_system_prompt_english()
 
-        # LLM
-        self.llm = AzureChatOpenAI(
-            openai_api_version=OPENAI_API_VERSION,
-            openai_api_key=OPENAI_API_KEY,
-            openai_api_base=OPENAI_API_BASE,
-            openai_api_type=OPENAI_API_TYPE,
-            deployment_name="gpt-4o-mini",
-            temperature=0,
-            verbose=True,
-        )
+        # Attach token handler
+        self.token_handler = TokenUsageHandler()
+        self.callback_manager = CallbackManager([self.token_handler])
 
-        # Memory for last 20 exchanges
+        # Choose model
+        if model in ["llama-3.1-8b-instant", "qwen/qwen3-32b", "openai/gpt-oss-20b"]:
+            self.llm = ChatGroq(
+                api_key=groq_api_key,
+                model=model,
+                verbose=True,
+                callback_manager=self.callback_manager
+            )
+        else:
+            self.llm = AzureChatOpenAI(
+                openai_api_version=OPENAI_API_VERSION,
+                openai_api_key=OPENAI_API_KEY,
+                openai_api_base=OPENAI_API_BASE,
+                openai_api_type=OPENAI_API_TYPE,
+                deployment_name="gpt-4o-mini",
+                temperature=0,
+                verbose=True,
+                callback_manager=self.callback_manager
+            )
+
+        print("Chosen model:", model)
+
+        # Memory
         self.memory = ConversationBufferWindowMemory(
             memory_key="chat_history",
             k=3,
@@ -126,6 +189,7 @@ class RetrievalChain:
 
         self.retriever = None
         self.subject = subject
+        self.model = model
 
     def get_documents(self):
         vectorstore = Chroma(
@@ -149,13 +213,11 @@ class RetrievalChain:
         if not self.retriever:
             raise ValueError("Call get_documents() first.")
 
-        # Use system prompt + human template including chat history & context
         prompt = ChatPromptTemplate.from_messages([
             ("system", self.system_prompt),
-            ("human", "CHAT HISTORY:\n{chat_history} \n Human:\n{question}")
+            ("human", "CHAT HISTORY:\n{chat_history}\nHuman:\n{question}")
         ])
 
-        # Build conversational retrieval chain with memory
         retrieval_chain = ConversationalRetrievalChain.from_llm(
             llm=self.llm,
             retriever=self.retriever,
@@ -163,7 +225,7 @@ class RetrievalChain:
             return_source_documents=False,
             verbose=True,
             combine_docs_chain_kwargs={"prompt": prompt},
-            rephrase_question=False,   
+            rephrase_question=False,
         )
 
         return retrieval_chain
@@ -173,111 +235,21 @@ class RetrievalChain:
             self.get_documents()
 
         chain = self.build_conversational_chain()
-
-        # Optional: print formatted history for debugging
-     
-        # Call chain (memory is automatically used)
         response = await chain.ainvoke({
             "question": user_input,
             "chat_history": self.memory.chat_memory.messages
         })
+        
+        print("input_tokens", self.token_handler.input_tokens)
+        print("output_tokens", self.token_handler.output_tokens)
+        print("Total Cost:", self.token_handler.get_total_cost(self.model))
 
-        # No need to manually add to memory — handled by chain
-        return response["answer"]
-    
-# class RetrievalChain:
-#     def __init__(self,subject: str):
-#         self.embeddings = EmbeddingDocuments().embedding_model(
-#             embedding_model='sentence-transformers/all-MiniLM-L6-v2'
-#         )
-#         self.system_prompt = get_system_prompt_maths() if subject == "maths" else get_system_prompt_english()
-#         self.llm = AzureChatOpenAI(
-#             openai_api_version=OPENAI_API_VERSION,
-#             openai_api_key=OPENAI_API_KEY,
-#             openai_api_base=OPENAI_API_BASE,
-#             openai_api_type=OPENAI_API_TYPE,
-#             deployment_name="gpt-4o-mini",
-#             temperature=0,
-#             verbose=True,
-#         )
+        result = {
+            "answer": response["answer"],
+            "input_tokens": self.token_handler.input_tokens,
+            "output_tokens": self.token_handler.output_tokens,
+            "total_cost": self.token_handler.get_total_cost(self.model)
+        }
 
-#         # 🧠 Maintain last 10 exchanges
-#         self.memory = ConversationBufferWindowMemory(
-#             memory_key="chat_history",
-#             k=20,
-#             return_messages=True
-#         )
+        return result
 
-#         self.retriever = None
-#         self.subject = subject
-
-#     def get_documents(self):
-#         print(f"Getting documents for subject: { self.subject}")
-#         vectorstore = Chroma(
-#             persist_directory="chroma_db/books",
-#             embedding_function=self.embeddings,
-#         )
-#         self.retriever = vectorstore.as_retriever(
-#             search_kwargs={"k": 3, "filter": {
-#                     "$and": [
-#                         {"grade": "7"},
-#                         {"subject": self.subject}
-#                     ]
-#                 }}
-#         )
-#         return self.retriever
-    
-
-#     def get_important_topics(self, query: str):
-#         print(f"Getting important topics for query: {query}")
-#         return self.retriever.invoke(query)
-
-#     def build_conversational_chain(self):
-#         if not self.retriever:
-#             raise ValueError("Call get_documents() first to initialize the retriever.")
-
-#         # Custom prompt that correctly includes chat history + context
-#         prompt = ChatPromptTemplate.from_messages([
-#             ("system", self.system_prompt),
-#             ("human", "{input}")
-#         ])
-
-#         combine_docs_chain = create_stuff_documents_chain(
-#             llm=self.llm,
-#             prompt=prompt,
-#         )
-
-#         combine_docs_chain = combine_docs_chain.with_config({"verbose": True})
-
-#         retrieval_chain = create_retrieval_chain(
-#             retriever=self.retriever,
-#             combine_docs_chain=combine_docs_chain,
-#         )
-
-#         retrieval_chain = retrieval_chain.with_config({"verbose": True})
-
-#         return retrieval_chain
-
-#     async def chat(self, user_input: str):
-#         if not self.retriever:
-#             self.get_documents()
-
-#         retrieval_chain = self.build_conversational_chain()
-
-#         # Format chat history into readable text for the prompt
-#         formatted_history = "\n".join([
-#             f"{m.type.capitalize()}: {m.content}" for m in self.memory.chat_memory.messages
-#         ])
-
-#         # ✅ Pass 'input', not 'question'
-#         response = await retrieval_chain.ainvoke({
-#             "input": user_input,
-#             "chat_history": formatted_history,
-#         })
-
-#         # Store conversation in memory manually
-#         self.memory.chat_memory.add_user_message(user_input)
-#         self.memory.chat_memory.add_ai_message(response["answer"])
-
-#         return response["answer"]
-    
