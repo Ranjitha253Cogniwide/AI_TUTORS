@@ -17,6 +17,11 @@ export default function ChatBot() {
   const [open, setOpen] = useState(false);
   const [prompt, setPrompt] = useState(false);
 
+  const [file, setFile] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [sessionIds, setSessionIds] = useState(null);
+  const [isPdfMode, setIsPdfMode] = useState(false);
+
   const defaultPrompt = `# Math Coach for 7th Grade
       
 You are an insightful Maths Coach for 7th-grade students.
@@ -146,12 +151,16 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
   };
 
   useEffect(() => {
+
+    if (!isPdfMode){
     sendMessage('clear')
     initialMessage(subject)
-  }, [subject]);
+  }}, [subject]);
 
   const local = false;
   const API_URL = local ? 'http://localhost:8100' : 'https://schooldigitalised.cogniwide.com/api/sd';
+const ASSIGNMENT_URL = local ? 'http://localhost:8100' : 'http://127.0.0.1:8000';
+
 
   const initialMessage = async (subject) => {
     const response = await fetch(`${API_URL}/tutor/get-initial-response/${subject}`);
@@ -207,12 +216,107 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
     return htmlString;
   }
 
-  // Send message to backend
+  const handleUpload = async () => {
+    if (!file) {
+      alert("Please select a file first.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const startRes = await fetch(`${ASSIGNMENT_URL}/assignment/start-session`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!startRes.ok) throw new Error("Failed to start session");
+      const startData = await startRes.json();
+      console.log("✅ Session started:", startData);
+      
+      setSessionIds(startData.session_id);
+      setIsPdfMode(true);
+      setShowChapters(false); 
+    setChapter([]); 
+     
+      if (startData.ai_message) {
+        setMessages([
+          
+          { role: "user", content: `📤 Uploaded: ${file.name} successfully`, images: [] },
+          { role: "assistant", content: startData.ai_message, images: [] }
+        ]);
+      } else {
+        setMessages( [
+          
+          { role: "assistant", content: "⚠️ No response received from AI. Please try again.", images: [] }
+        ]);
+      }
+    } catch (error) {
+      console.error("❌ Upload failed:", error);
+      setMessages([
+        
+        { role: "assistant", content: "❌ Upload failed. Please check your file and try again.", images: [] }
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+ 
   const sendMessage = async (text) => {
     const messageText = (typeof text === 'string' && text.trim()) ? text.trim() : input.trim();
     if (!messageText || isLoading) return;
+    if (isPdfMode && messageText.toLowerCase() === 'clear') {
+      // Reset to initial tutor state
+      setMessages([{ role: 'assistant', content: starter, images: [] }]);
+      setIsPdfMode(false);
+      setSessionIds(null);
+      setFile(null);
+      setInput('');
+      setShowChapters(true);
+      // Fetch initial message for current subject
+      initialMessage(subject);
+      return;
+    }
+    
+    if (isPdfMode) {
+      setShowChapters(false);
+      setMessages(prev =>
+        prev.map(msg => msg.role === 'assistant' ? { ...msg, quick_replies: [] } : msg)
+      );
+      setMessages(prev => [...prev, { role: 'user', content: messageText, images: [] }]);
+      setInput('');
+      setIsLoading(true);
+      try {
+        const res = await fetch(`${ASSIGNMENT_URL}/assignment/send-message`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            session_id: sessionIds,
+            student_message: messageText
+          })
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(errText || 'Network error');
+        }
+        const data = await res.json();
+        setMessages(prev => [
+          ...prev,
+          { role: 'assistant', content: data.ai_message, images: [] }
+        ]);
+      } catch (err) {
+        console.error('Send error', err);
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: 'Oops — could not reach the server. Try again.',
+          images: []
+        }]);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
 
-    // Hide chapters if user clicked
     setShowChapters(false);
     setMessages(prev =>
       prev.map(msg => msg.role === 'assistant' ? { ...msg, quick_replies: [] } : msg)
@@ -231,20 +335,16 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
           subject: subject,
           prompt: prompt,
           model: selectedModel,
-          custom_prompt: useCustomPrompt? customPrompt : defaultPrompt,
+          custom_prompt: useCustomPrompt ? customPrompt : defaultPrompt,
         }),
       });
-
       if (!res.ok) {
         const errText = await res.text();
         throw new Error(errText || 'Network error');
       }
-
       const data = await res.json();
       console.log(data);
-
       const images = Array.isArray(data.images) ? data.images : [];
-
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: convertFractionsToMathML(data.response.replace(/<\/?strong>/g, '')
@@ -259,16 +359,18 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
         outputTokens: data.output_tokens,
         totalCost: data.total_cost,
       }]);
-
-      console.log("DATA",data);
-
+      console.log("DATA", data);
       if (data.type === 'cleared') {
         setMessages([{ role: 'assistant', content: starter, images: [] }]);
-        setShowChapters(true); // reset for new session
+        setShowChapters(true);
       }
     } catch (err) {
       console.error('Send error', err);
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Oops — could not reach the server. Try again.', images: [] }]);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'Oops — could not reach the server. Try again.',
+        images: []
+      }]);
     } finally {
       setIsLoading(false);
     }
@@ -399,6 +501,7 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
           />
         </div>
 
+
         <div className="flex justify-end gap-3 p-4 border-t border-gray-300 bg-white">
           <button
             onClick={() => setOpen(false)}
@@ -445,6 +548,40 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
             </div>
           </div>
 
+
+           {/* for uploading files */}
+          <div>
+  {/* Hidden file input */}
+  <input
+    type="file"
+    id="fileInput"
+    accept=".pdf,.docx,.jpg,.png"
+    style={{ display: "none" }}
+    onChange={(e) => setFile(e.target.files[0])}
+  />
+ 
+  {/* Upload button */}
+  <button
+    onClick={() => document.getElementById("fileInput").click()}
+    className="px-4 py-2 rounded-full bg-white/20 backdrop-blur-sm text-white border-2 border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50 transition-all duration-300 shadow-lg hover:bg-white/30 text-sm font-medium cursor-pointer"
+  >
+    📎 Choose File
+  </button>
+ 
+  {/* Show file name if selected */}
+  
+ 
+  {/* Upload trigger button */}
+  <button
+    onClick={handleUpload}
+    disabled={loading || !file}
+    className="ml-3 px-4 py-2 rounded-full bg-green-500 hover:bg-green-600 text-white border-2 border-white/30 transition-all duration-300 shadow-lg text-sm font-medium cursor-pointer disabled:opacity-50"
+  >
+    {loading ? "Uploading..." : "📤 Upload"}
+  </button>
+</div>
+
+
           {/* Subject Dropdown in Header */}
           <div className="flex items-center gap-2">
             <select
@@ -479,7 +616,7 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
       {/* Prompt Sidebar */}
       <PromptEditor />
 
-        
+
       {/* Messages Container */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {messages.map((msg, idx) => (
@@ -507,14 +644,8 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
                 {/* Glow effect on hover */}
                 <div className={`absolute inset-0 rounded-3xl blur-2xl opacity-0 group-hover:opacity-30 transition-opacity duration-300 ${msg.role === 'user' ? 'bg-blue-100' : msg.type == true ? 'bg-yellow-100' : 'bg-purple-100'}`}></div>
 
-         {msg.inputTokens && (
-              <div className='flex gap-3 py-3'>
-              <small className='bg-green-500 text-black py-1 px-2 rounded-xl'>Input Token : {msg.inputTokens}</small>
-              <small className='bg-green-500 text-black py-1 px-2 rounded-xl'>Output Token : {msg.outputTokens}</small>
-              <small className='bg-green-500 text-black py-1 px-2 rounded-xl'>Total Cost : {msg.totalCost}</small>
-            </div>
-          )}
-          
+
+
                 {/* Achievement style for answers */}
                 {msg.role === 'assistant' && msg.type == true && (
                   <>
@@ -557,7 +688,16 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
                  
                 </div>
 
-        
+
+          {msg.inputTokens && (
+              <div className='flex gap-3 py-3'>
+              <small className='bg-green-500 text-black py-1 px-2 rounded-xl'>Input Token : {msg.inputTokens}</small>
+              <small className='bg-green-500 text-black py-1 px-2 rounded-xl'>Output Token : {msg.outputTokens}</small>
+              <small className='bg-green-500 text-black py-1 px-2 rounded-xl'>Total Cost : {msg.totalCost}</small>
+
+            </div>
+          )}
+
 
               </div>
 
@@ -582,6 +722,7 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
                 </div>
               )}
             </div>
+
 
 
           </div>
