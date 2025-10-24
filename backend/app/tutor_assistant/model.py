@@ -10,9 +10,12 @@ from langchain.memory import ConversationBufferWindowMemory
 from langchain.chains import ConversationalRetrievalChain
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
-from app.tutor_assistant.prompts.prompt import get_system_prompt_maths,get_system_prompt_english,get_system_prompt_maths_new
+from app.tutor_assistant.prompts.prompt import get_system_prompt_english
 from langchain.chat_models import AzureChatOpenAI
 import openai
+from langchain.callbacks.manager import CallbackManager
+from langchain.callbacks.base import BaseCallbackHandler
+
 
 load_dotenv()
 
@@ -93,25 +96,77 @@ class EmbeddingDocuments:
         )
         db.persist()
         print("✅ Chroma DB created successfully!")
-# ───────────────────────────────────────────────
-# Retrieval Chain with Memory
-# ───────────────────────────────────────────────
+
+
+
+class TokenUsageHandler(BaseCallbackHandler):
+    """Custom handler to record token usage."""
+    def __init__(self):
+        self.input_tokens = 0
+        self.output_tokens = 0
+
+    def on_llm_end(self, response, **kwargs):
+        try:
+            usage = response.llm_output.get("token_usage", {})
+            self.input_tokens += usage.get("prompt_tokens", 0)
+            self.output_tokens += usage.get("completion_tokens", 0)
+        except Exception:
+            pass
+
+    # def get_total_cost(self, model: str):
+    #     # ⚙️ Define cost per 1K tokens for known models (adjust as per actual Groq pricing)
+    #     pricing = {
+    #         "llama-3.1-8b-instant": {"input": 0.00005, "output": 0.00008},
+    #         "qwen/qwen3-32b": {"input": 0.00006, "output": 0.00012},
+    #         "openai/gpt-oss-20b": {"input": 0.00010, "output": 0.00020},
+    #         "gpt-4o-mini": {"input": 0.00015, "output": 0.00060},
+    #     }
+    #     price = pricing.get(model, {"input": 0.0001, "output": 0.0001})
+    #     return round(
+    #         (self.input_tokens / 1000 * price["input"]) +
+    #         (self.output_tokens / 1000 * price["output"]),
+    #         6
+    #     )
+    def get_total_cost(self, model: str):
+        pricing = {
+            "llama-3.1-8b-instant": {"input": 0.00005, "output": 0.00008},
+            "qwen/qwen3-32b": {"input": 0.00006, "output": 0.00012},
+            "openai/gpt-oss-20b": {"input": 0.00010, "output": 0.00020},
+            "azure/gpt-4o-mini": {"input": 0.00015, "output": 0.00060},
+        }
+        model_key = model.lower().strip()
+        price = pricing.get(model_key, {"input": 0.0001, "output": 0.0001})
+        return round(
+            (self.input_tokens / 1000 * price["input"]) +
+            (self.output_tokens / 1000 * price["output"]),
+            6
+        )
+
+
+
 
 class RetrievalChain:
-    def __init__(self,subject: str,prompt:bool, model:str, custom_prompt: str = None):
+    def __init__(self, subject: str, prompt: bool, model: str, custom_prompt: str = None):
         self.embeddings = EmbeddingDocuments().embedding_model(
             embedding_model='sentence-transformers/all-MiniLM-L6-v2'
         )
+
         if subject == "maths":
-            self.system_prompt = get_system_prompt_maths_new() if prompt else custom_prompt
-            
+            self.system_prompt = custom_prompt
         else:
             self.system_prompt = get_system_prompt_english()
-        if model == "llama-3.1-8b-instant" or model == "qwen/qwen3-32b" or model == "openai/gpt-oss-20b":
+
+        # Attach token handler
+        self.token_handler = TokenUsageHandler()
+        self.callback_manager = CallbackManager([self.token_handler])
+
+        # Choose model
+        if model in ["llama-3.1-8b-instant", "qwen/qwen3-32b", "openai/gpt-oss-20b"]:
             self.llm = ChatGroq(
                 api_key=groq_api_key,
                 model=model,
                 verbose=True,
+                callback_manager=self.callback_manager
             )
         else:
             self.llm = AzureChatOpenAI(
@@ -122,19 +177,21 @@ class RetrievalChain:
                 deployment_name="gpt-4o-mini",
                 temperature=0,
                 verbose=True,
+                callback_manager=self.callback_manager
             )
-        
-        print("choosed model:", model)
 
-        # 🧠 Maintain last 10 exchanges
+        print("Chosen model:", model)
+
+        # Memory
         self.memory = ConversationBufferWindowMemory(
             memory_key="chat_history",
             k=3,
-            return_messages=True   
+            return_messages=True
         )
 
         self.retriever = None
         self.subject = subject
+        self.model = model
 
     def get_documents(self):
         vectorstore = Chroma(
@@ -158,13 +215,11 @@ class RetrievalChain:
         if not self.retriever:
             raise ValueError("Call get_documents() first.")
 
-        # Use system prompt + human template including chat history & context
         prompt = ChatPromptTemplate.from_messages([
             ("system", self.system_prompt),
-            ("human", "CHAT HISTORY:\n{chat_history} \n Human:\n{question}")
+            ("human", "CHAT HISTORY:\n{chat_history}\nHuman:\n{question}")
         ])
 
-        # Build conversational retrieval chain with memory
         retrieval_chain = ConversationalRetrievalChain.from_llm(
             llm=self.llm,
             retriever=self.retriever,
@@ -172,7 +227,7 @@ class RetrievalChain:
             return_source_documents=False,
             verbose=True,
             combine_docs_chain_kwargs={"prompt": prompt},
-            rephrase_question=False,   
+            rephrase_question=False,
         )
 
         return retrieval_chain
@@ -182,10 +237,21 @@ class RetrievalChain:
             self.get_documents()
 
         chain = self.build_conversational_chain()
+
         response = await chain.ainvoke({
             "question": user_input,
             "chat_history": self.memory.chat_memory.messages
         })
+        
+        print("input_tokens", self.token_handler.input_tokens)
+        print("output_tokens", self.token_handler.output_tokens)
+        print("Total Cost:", self.token_handler.get_total_cost(self.model))
 
-        return response["answer"]
-    
+        result = {
+            "answer": response["answer"],
+            "input_tokens": self.token_handler.input_tokens,
+            "output_tokens": self.token_handler.output_tokens,
+            "total_cost": self.token_handler.get_total_cost(self.model)
+        }
+
+        return result

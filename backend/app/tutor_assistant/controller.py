@@ -29,16 +29,28 @@ async def ask_question(request: QueryRequest):
     question = request.question.strip()
 
     if not question:
-        return {"response": "Please ask a valid question.", "buttons": [], "correct_answer": False, "hint": "", "type": "invalid"}
+        return {
+            "response": "Please ask a valid question.",
+            "buttons": [],
+            "correct_answer": False,
+            "hint": "",
+            "type": "invalid"
+        }
 
     if question.lower() == "clear":
         if session_id in tutor_sessions:
             del tutor_sessions[session_id]
-        return {"response": "✅ Memory cleared for this session.", "buttons": [], "correct_answer": False, "hint": "", "type": "cleared"}
+        return {
+            "response": "✅ Memory cleared for this session.",
+            "buttons": [],
+            "correct_answer": False,
+            "hint": "",
+            "type": "cleared"
+        }
 
     # Create or reuse retrieval chain
     if session_id not in tutor_sessions:
-        retriever = RetrievalChain(request.subject, request.prompt,request.model,request.custom_prompt)
+        retriever = RetrievalChain(request.subject, request.prompt, request.model, request.custom_prompt)
         retriever.get_documents()
         tutor_sessions[session_id] = retriever
     else:
@@ -48,27 +60,42 @@ async def ask_question(request: QueryRequest):
     result_raw = await retriever.chat(question)
     print("raw data:", result_raw)
 
-    # Try to extract structured JSON from markdown format
-    cleaned_json_str = re.sub(r'```json\s*([\s\S]*?)\s*```', r'\1', result_raw)
+    # Handle dict response
+    if isinstance(result_raw, dict):
+        result_text = result_raw.get("answer", "")
+        meta_data = {
+            "input_tokens": result_raw.get("input_tokens", 0),
+            "output_tokens": result_raw.get("output_tokens", 0),
+            "total_cost": result_raw.get("total_cost", 0.0)
+        }
+    else:
+        result_text = str(result_raw)
+        meta_data = {"input_tokens": 0, "output_tokens": 0, "total_cost": 0.0}
+
+    # Remove ```json ... ``` wrappers
+    cleaned_json_str = re.sub(r'```json\s*([\s\S]*?)\s*```', r'\1', result_text)
 
     try:
         result = json.loads(cleaned_json_str)
-        # Structured JSON response
         parsed_result = {
             "response": result.get("answer", "").strip(),
             "correct_answer": result.get("correct_answer", False),
             "quick_replies": result.get("quick_replies", []),
+            "input_tokens": meta_data["input_tokens"],
+            "output_tokens": meta_data["output_tokens"],
+            "total_cost": meta_data["total_cost"]
         }
     except json.JSONDecodeError:
-        # Fallback: Raw string as plain response
+        # fallback if not proper JSON
         parsed_result = {
-            "response": result_raw.strip(),
+            "response": result_text.strip(),
             "correct_answer": False,
             "quick_replies": [],
+            **meta_data
         }
 
+    # ✅ Return JSON-safe structured data to frontend
     return parsed_result
-
 
 @tutor_router.get("/get-initial-response/{subject}")
 async def get_initial_response(subject: str):
