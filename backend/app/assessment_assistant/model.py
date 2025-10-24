@@ -95,7 +95,7 @@ class RetrivalChain:
  
         prompt = ChatPromptTemplate.from_messages([
             ("system", self.system_prompt),
-            ("human", "Conversation Summary:\n{chat_history}\n\nUser question:\n{input}")
+            ("human", "Previous conversation summary:\n{chat_history}\n\nCurrent question: {input}\nPlease answer without repeating previous questions.")
         ])
  
         combine_docs_chain = create_stuff_documents_chain(llm=self.llm, prompt=prompt)
@@ -120,7 +120,7 @@ class RetrivalChain:
         if self.subject == "english":
             invoke_vars["eng_topic"] = "Grammar, Vocabulary, the day the river spoke"
         elif self.subject == "maths":
-            invoke_vars["math_topic"] = "Algebra, Geometry"
+            invoke_vars["math_topic"] = "ARITHMETIC EXPRESSIONS, WORKING WITH FRACTIONS"
  
         response = await chain.ainvoke(invoke_vars)
  

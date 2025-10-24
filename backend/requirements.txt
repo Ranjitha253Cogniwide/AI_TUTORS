@@ -1,5 +1,5 @@
-# Core LangChain
-langchain
+# Use older LangChain that keeps old imports
+langchain==0.1.17
 
 # LangChain community modules (Chroma & other vectorstores)
 langchain-community

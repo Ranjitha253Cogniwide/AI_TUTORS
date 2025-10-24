@@ -3,30 +3,45 @@ import { Send, User, Sparkles } from 'lucide-react';
  
 export default function ChatBot() {
   const [mode, setMode] = useState('tutor');
-  const getStarter = (mode) => {
-    return mode === 'tutor'
-      ? "Hey there! Ready to learn something cool today? Ask me anything!"
-      : "Hey there! I am you Assessment assistant, Ready to test yourself?";
-  };
- 
-  const [messages, setMessages] = useState([{ role: 'assistant', content: getStarter(mode), images: [] }]);
+
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [subject, setSubject] = useState('english');
   const [chapter, setChapter] = useState([]);
   const messagesEndRef = useRef(null);
   const [showChapters, setShowChapters] = useState(true);
- 
+
+  const getStarter = (mode) => {
+    return mode === 'tutor'
+      ? "Hey there! Ready to learn something cool today? Ask me anything!"
+      : `Hey there! How was the ${subject}  class ? Ready for a quick assessment?`;
+  };
+  const [messages, setMessages] = useState([{ role: 'assistant', content: getStarter(mode), images: [] }]);
+
   useEffect(() => {
-    setMessages([{ role: 'assistant', content: getStarter(mode), images: [] }]);
-    setShowChapters(true);
- 
-    if (mode === 'tutor') {
-      initialMessage(subject);
-    } else {
-      setChapter([]);
-    }
-  }, [subject, mode]);
+  setMessages([{ role: 'assistant', content: getStarter(mode), images: [] }]);
+  setShowChapters(true);
+
+  if (mode === 'tutor') {
+    // Tutor logic (same as before)
+    initialMessage(subject);
+  } else if (mode === 'assessment') {
+    fetch(`http://127.0.0.1:8000/assessment/get-initial-response/${subject}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data?.response) {
+          setMessages(prev => [
+            ...prev,
+            { role: 'assistant', content: data.response, images: [] }
+          ]);
+        }
+      })
+      .catch(err => console.error('Assessment init error:', err));
+  } else {
+    setChapter([]);
+  }
+}, [subject, mode]);
+
  
   const API_URL = mode === 'tutor'
     ? 'http://127.0.0.1:8000/tutor/ask'
@@ -146,6 +161,7 @@ export default function ChatBot() {
               <p className="text-sm text-white/90 font-light">Your personal learning assistant</p>
             </div>
           </div>
+ 
  
           <select
             value={mode}

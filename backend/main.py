@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.tutor_assistant.controller import tutor_router
+from app.assessment_assistant.controller import assessment_router
 import uvicorn
 from app.tutor_assistant.model import TutorAssistant
 from fastapi.staticfiles import StaticFiles
@@ -28,6 +29,7 @@ app.mount(
 )
 
 app.include_router(tutor_router)
+app.include_router(assessment_router)
 
 # tutor_assistant = TutorAssistant()
 # tutor_assistant.load_file()

@@ -1,6 +1,6 @@
 import os
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.schema import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain.prompts import ChatPromptTemplate
@@ -8,7 +8,7 @@ from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.memory import ConversationBufferWindowMemory
 from langchain.chains import ConversationalRetrievalChain
-from langchain_groq import ChatGroq
+# from langchain_groq import ChatGroq
 from dotenv import load_dotenv
 from app.tutor_assistant.prompts.prompt import get_system_prompt_maths,get_system_prompt_english
 from langchain.chat_models import AzureChatOpenAI
