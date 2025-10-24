@@ -479,12 +479,16 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
       {/* Prompt Sidebar */}
       <PromptEditor />
 
+        
       {/* Messages Container */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {messages.map((msg, idx) => (
           <div key={idx} className={`flex flex-col gap-2 animate-slideIn ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
             <div className={`flex gap-3 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
               {/* Avatar with glow */}
+
+       
+
               <div className="relative flex-shrink-0">
                 <div className={`absolute inset-0 rounded-full blur-lg opacity-20 ${msg.role === 'user' ? 'bg-blue-400' : 'bg-purple-400'}`}></div>
                 <div className={`relative w-11 h-11 rounded-full flex items-center justify-center shadow-lg transform transition-all duration-300 hover:scale-110 ${msg.role === 'user' ? 'bg-gradient-to-br from-blue-500 to-cyan-500' : 'bg-gradient-to-br from-purple-500 to-pink-500'}`}>
@@ -496,14 +500,26 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
                 </div>
               </div>
 
+              
+
               {/* Message Bubble with enhanced styling */}
               <div className={`relative group ${msg.role === 'user' ? 'ml-auto' : 'mr-auto'}`}>
                 {/* Glow effect on hover */}
                 <div className={`absolute inset-0 rounded-3xl blur-2xl opacity-0 group-hover:opacity-30 transition-opacity duration-300 ${msg.role === 'user' ? 'bg-blue-100' : msg.type == true ? 'bg-yellow-100' : 'bg-purple-100'}`}></div>
 
+         {msg.inputTokens && (
+              <div className='flex gap-3 py-3'>
+              <small className='bg-green-500 text-black py-1 px-2 rounded-xl'>Input Token : {msg.inputTokens}</small>
+              <small className='bg-green-500 text-black py-1 px-2 rounded-xl'>Output Token : {msg.outputTokens}</small>
+              <small className='bg-green-500 text-black py-1 px-2 rounded-xl'>Total Cost : {msg.totalCost}</small>
+            </div>
+          )}
+          
                 {/* Achievement style for answers */}
                 {msg.role === 'assistant' && msg.type == true && (
                   <>
+
+                  
                     <div className="absolute -top-2 -left-2 w-12 h-12 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg animate-bounce-slow z-10">
                       <span className="text-2xl">🏆</span>
                     </div>
@@ -541,13 +557,7 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
                  
                 </div>
 
-          {msg.inputTokens && (
-              <div className='flex gap-3 py-3'>
-              <small className='bg-green-500 text-black py-1 px-2 rounded-xl'>Input Token : {msg.inputTokens}</small>
-              <small className='bg-green-500 text-black py-1 px-2 rounded-xl'>Output Token : {msg.outputTokens}</small>
-              <small className='bg-green-500 text-black py-1 px-2 rounded-xl'>Total Cost : {msg.totalCost}</small>
-            </div>
-          )}
+        
 
               </div>
 
