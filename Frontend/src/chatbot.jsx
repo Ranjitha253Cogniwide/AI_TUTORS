@@ -150,7 +150,7 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
     initialMessage(subject)
   }, [subject]);
 
-  const local = false;
+  const local = true;
   const API_URL = local ? 'http://localhost:8100' : 'https://schooldigitalised.cogniwide.com/api/sd';
 
   const initialMessage = async (subject) => {
