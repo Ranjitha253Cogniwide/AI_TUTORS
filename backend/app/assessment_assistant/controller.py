@@ -129,6 +129,7 @@ async def chat_with_assistant(subject: str, question: str, grade: str = "7"):
 
 
 app.include_router(assessment_router)
+
 #for the assessment initial response (at now the api call is not used in frontend)
 # @assessment_router.get("/get-initial-response/{subject}")
 # async def get_initial_response(subject: str):
