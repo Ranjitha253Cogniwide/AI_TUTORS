@@ -14,7 +14,7 @@ export default function ChatBot() {
   const getStarter = (mode) => {
     return mode === 'tutor'
       ? "Hey there! Ready to learn something cool today? Ask me anything!"
-      : `Hey there! How was the ${subject}  class ? Ready for a quick assessment?`;
+      : `Hey there! How was the ${subject}  class ? Wait for the Tutor to respond Shortly!`;
   };
   const [messages, setMessages] = useState([{ role: 'assistant', content: getStarter(mode), images: [] }]);
 

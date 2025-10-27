@@ -118,18 +118,18 @@ async def get_initial_response(subject: str, grade: str = "7"):
     }
 
 
-@assessment_router.post("/chat")
-async def chat_with_assistant(subject: str, question: str, grade: str = "7"):
-    """
-    Uses RetrivalChain from model.py to get AI-generated responses based on subject.
-    """
-    chain = RetrivalChain(subject=subject, grade=grade)
-    response = await chain.chat(question)
+# @assessment_router.post("/chat")
+# async def chat_with_assistant(subject: str, question: str, grade: str = "7"):
+#     """
+#     Uses RetrivalChain from model.py to get AI-generated responses based on subject.
+#     """
+#     chain = RetrivalChain(subject=subject, grade=grade)
+#     response = await chain.chat(question)
 
-    return {
-        "subject": subject,
-        "response": str(response)
-    }
+#     return {
+#         "subject": subject,
+#         "response": str(response)
+#     }
 
 
 app.include_router(assessment_router)
