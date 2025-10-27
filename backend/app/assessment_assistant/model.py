@@ -91,8 +91,8 @@ class RetrivalChain:
             ("human", "{input}")
         ])
 
-        combine_docs_chain = create_stuff_documents_chain(llm=self.llm, prompt=prompt)
-        retrieval_chain = create_retrieval_chain(retriever=self.retriever, combine_docs_chain=combine_docs_chain)
+        combine_docs_chain =create_stuff_documents_chain(llm=self.llm, prompt=prompt)
+        retrieval_chain =create_retrieval_chain(retriever=self.retriever, combine_docs_chain=combine_docs_chain)
 
         return retrieval_chain
 

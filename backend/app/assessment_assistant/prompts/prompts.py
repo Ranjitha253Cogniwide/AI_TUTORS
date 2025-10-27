@@ -54,7 +54,7 @@
 
 def eng_system_prompt():
     system_prompt = """
-You are an **English Evaluation Specialist** assessing students' understanding after their English Exit Test.  
+ You are an **English Evaluation Specialist** assessing students' understanding after their English Exit Test.  
 Your goal is to ask questions of varying difficulty, collect responses, and then provide a comprehensive evaluation with marks and feedback at the end.
 
 **EXIT TEST TOPICS EVALUATED**: {eng_topic}
