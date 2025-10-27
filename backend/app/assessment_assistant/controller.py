@@ -1,34 +1,35 @@
-from fastapi import APIRouter,FastAPI
+# controller.py
+from fastapi import APIRouter, FastAPI
 from pydantic import BaseModel
 from typing import Dict
 from app.assessment_assistant.model import RetrivalChain
 import json, re
 
 app = FastAPI()
- 
+
 # Create router
 assessment_router = APIRouter(
     prefix="/assessment",
     tags=["assessment"]
 )
- 
+
 # Request model
 class QueryRequest(BaseModel):
     session_id: str
     question: str
     subject: str
     grade: str = "7"  # default grade if not provided
- 
+
 # Session memory map
 assessment_sessions: Dict[str, RetrivalChain] = {}
- 
+
 @assessment_router.post("/query")
 async def ask_question(request: QueryRequest):
     session_id = request.session_id.strip()
     question = request.question.strip()
-    subject = request.subject
-    grade = request.grade
- 
+    subject = request.subject.strip().lower()
+    grade = request.grade.strip()
+
     if not question:
         return {
             "response": "Please ask a valid question.",
@@ -36,7 +37,7 @@ async def ask_question(request: QueryRequest):
             "has_images": False,
             "type": "invalid",
         }
- 
+
     # Clear session memory if requested
     if question.lower() == "clear":
         if session_id in assessment_sessions:
@@ -47,7 +48,7 @@ async def ask_question(request: QueryRequest):
             "has_images": False,
             "type": "cleared",
         }
- 
+
     # Get or create retrieval chain for this session
     if session_id not in assessment_sessions:
         retriever = RetrivalChain(subject=subject, grade=grade)
@@ -55,13 +56,13 @@ async def ask_question(request: QueryRequest):
         assessment_sessions[session_id] = retriever
     else:
         retriever = assessment_sessions[session_id]
- 
+
     # Ask the question using the chain
     result = await retriever.chat(question)
     answer_text = result.strip() if isinstance(result, str) else str(result)
     images_raw = []
     response_type = "answer"
- 
+
     # Parse structured JSON response if provided
     try:
         parsed = json.loads(answer_text)
@@ -71,7 +72,7 @@ async def ask_question(request: QueryRequest):
             response_type = parsed.get("type", "answer")
     except json.JSONDecodeError:
         pass
- 
+
     # Extract image filenames
     cleaned_images = []
     for image in images_raw:
@@ -82,27 +83,29 @@ async def ask_question(request: QueryRequest):
         match = re.search(r'/([^/]+\.(?:jpg|jpeg|png|gif))$', url_str, re.IGNORECASE)
         if match:
             cleaned_images.append(match.group(1))
- 
+
     return {
         "response": answer_text,
         "images": cleaned_images,
         "has_images": len(cleaned_images) > 0,
         "type": response_type,
     }
+
+
 @assessment_router.get("/get-initial-response/{subject}")
 async def get_initial_response(subject: str, grade: str = "7"):
     """
     Returns an initial greeting with topics pulled from RetrivalChain.
     """
+    subject = subject.lower()
     chain = RetrivalChain(subject=subject, grade=grade)
 
-    # Get topics based on subject
-    if subject.lower() == "english":
-        topics = getattr(chain, "system_prompt", None)  # or define a method to get topics
-        topic_text = "Grammar, Vocabulary, the day the river spoke"
+    # Assign topics and teacher dynamically
+    if subject == "english":
+        topic_text = "Grammar, Vocabulary, The Day the River Spoke"
         teacher = "Ms. Priya"
-    elif subject.lower() == "maths":
-        topic_text = "ARITHMETIC EXPRESSIONS, WORKING WITH FRACTIONS"
+    elif subject == "maths":
+        topic_text = "Arithmetic Expressions, Working with Fractions, Simple Equations"
         teacher = "Mr. Ravi"
     else:
         topic_text = "General topics"
@@ -111,8 +114,9 @@ async def get_initial_response(subject: str, grade: str = "7"):
     return {
         "response": f"<strong>Today's {subject.title()} Class</strong> — Topics: {topic_text}. Ready for the assessment?",
         "teacher": teacher,
-        "topics": topic_text.split(", ")
+        "topics": [t.strip() for t in topic_text.split(",")]
     }
+
 
 @assessment_router.post("/chat")
 async def chat_with_assistant(subject: str, question: str, grade: str = "7"):
@@ -129,6 +133,140 @@ async def chat_with_assistant(subject: str, question: str, grade: str = "7"):
 
 
 app.include_router(assessment_router)
+
+
+
+# from fastapi import APIRouter,FastAPI
+# from pydantic import BaseModel
+# from typing import Dict
+# from app.assessment_assistant.model import RetrivalChain
+# import json, re
+
+# app = FastAPI()
+ 
+# # Create router
+# assessment_router = APIRouter(
+#     prefix="/assessment",
+#     tags=["assessment"]
+# )
+ 
+# # Request model
+# class QueryRequest(BaseModel):
+#     session_id: str
+#     question: str
+#     subject: str
+#     grade: str = "7"  # default grade if not provided
+ 
+# # Session memory map
+# assessment_sessions: Dict[str, RetrivalChain] = {}
+ 
+# @assessment_router.post("/query")
+# async def ask_question(request: QueryRequest):
+#     session_id = request.session_id.strip()
+#     question = request.question.strip()
+#     subject = request.subject
+#     grade = request.grade
+ 
+#     if not question:
+#         return {
+#             "response": "Please ask a valid question.",
+#             "images": [],
+#             "has_images": False,
+#             "type": "invalid",
+#         }
+ 
+#     # Clear session memory if requested
+#     if question.lower() == "clear":
+#         if session_id in assessment_sessions:
+#             del assessment_sessions[session_id]
+#         return {
+#             "response": "✅ Memory cleared for this session.",
+#             "images": [],
+#             "has_images": False,
+#             "type": "cleared",
+#         }
+ 
+#     # Get or create retrieval chain for this session
+#     if session_id not in assessment_sessions:
+#         retriever = RetrivalChain(subject=subject, grade=grade)
+#         retriever.get_documents()  # initialize retriever directly
+#         assessment_sessions[session_id] = retriever
+#     else:
+#         retriever = assessment_sessions[session_id]
+ 
+#     # Ask the question using the chain
+#     result = await retriever.chat(question)
+#     answer_text = result.strip() if isinstance(result, str) else str(result)
+#     images_raw = []
+#     response_type = "answer"
+ 
+#     # Parse structured JSON response if provided
+#     try:
+#         parsed = json.loads(answer_text)
+#         if isinstance(parsed, dict):
+#             answer_text = parsed.get("answer", "").strip()
+#             images_raw = parsed.get("images", [])
+#             response_type = parsed.get("type", "answer")
+#     except json.JSONDecodeError:
+#         pass
+ 
+#     # Extract image filenames
+#     cleaned_images = []
+#     for image in images_raw:
+#         if isinstance(image, dict) and "url" in image:
+#             url_str = image["url"]
+#         else:
+#             url_str = str(image)
+#         match = re.search(r'/([^/]+\.(?:jpg|jpeg|png|gif))$', url_str, re.IGNORECASE)
+#         if match:
+#             cleaned_images.append(match.group(1))
+ 
+#     return {
+#         "response": answer_text,
+#         "images": cleaned_images,
+#         "has_images": len(cleaned_images) > 0,
+#         "type": response_type,
+#     }
+# @assessment_router.get("/get-initial-response/{subject}")
+# async def get_initial_response(subject: str, grade: str = "7"):
+#     """
+#     Returns an initial greeting with topics pulled from RetrivalChain.
+#     """
+#     chain = RetrivalChain(subject=subject, grade=grade)
+
+#     # Get topics based on subject
+#     if subject.lower() == "english":
+#         topics = getattr(chain, "system_prompt", None)  # or define a method to get topics
+#         topic_text = "Grammar, Vocabulary, the day the river spoke"
+#         teacher = "Ms. Priya"
+#     elif subject.lower() == "maths":
+#         topic_text = "ARITHMETIC EXPRESSIONS, WORKING WITH FRACTIONS"
+#         teacher = "Mr. Ravi"
+#     else:
+#         topic_text = "General topics"
+#         teacher = "Unknown"
+
+#     return {
+#         "response": f"<strong>Today's {subject.title()} Class</strong> — Topics: {topic_text}. Ready for the assessment?",
+#         "teacher": teacher,
+#         "topics": topic_text.split(", ")
+#     }
+
+# @assessment_router.post("/chat")
+# async def chat_with_assistant(subject: str, question: str, grade: str = "7"):
+#     """
+#     Uses RetrivalChain from model.py to get AI-generated responses based on subject.
+#     """
+#     chain = RetrivalChain(subject=subject, grade=grade)
+#     response = await chain.chat(question)
+
+#     return {
+#         "subject": subject,
+#         "response": str(response)
+#     }
+
+
+# app.include_router(assessment_router)
 
 #for the assessment initial response (at now the api call is not used in frontend)
 # @assessment_router.get("/get-initial-response/{subject}")
