@@ -1551,7 +1551,7 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
 
       <PromptEditor />
 
-      <div className="flex-1 overflow-y-auto px-6 py-4 bg-black">
+      <div className="flex-1 overflow-y-auto px-6 py-4 bg-white">
         <div className="max-w-4xl mx-auto space-y-4">
           {messages.map((msg, idx) => (
             <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
