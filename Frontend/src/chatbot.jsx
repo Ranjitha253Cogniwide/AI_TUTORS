@@ -277,7 +277,7 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
     }
   }, [subject]);
 
-  const local = true;
+  const local = false;
   const API_URL = local ? 'http://localhost:8100' : 'https://schooldigitalised.cogniwide.com/api/sd';
 
   const initialMessage = async (subject) => {
