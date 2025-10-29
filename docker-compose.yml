@@ -23,6 +23,7 @@ services:
       - ./backend:/app
     environment:
       - PYTHONUNBUFFERED=1
+      - GROQ_API_KEY=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
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
    # command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
