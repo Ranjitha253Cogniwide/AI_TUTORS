@@ -1825,7 +1825,7 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
           {isLoading && (
             <div className="flex gap-3">
               <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
-                <User className="w-5 h-5 text-white" />
+                <Sparkles className="w-5 h-5 text-white" />
               </div>
               <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 shadow-sm">
                 <div className="flex gap-1.5">
