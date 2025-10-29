@@ -738,7 +738,7 @@
 //             </div>
 //           ))}
 
-//           {showChapters && Array.isArray(chapter) && chapter.length > 0 && (
+//           {showChapters && mode !== 'assessment' && Array.isArray(chapter) && chapter.length > 0 && (
 //             <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
 //               <h3 className="text-sm font-semibold text-gray-700 mb-3">Select a topic to begin:</h3>
 //               {chapter.every(item => 'title' in item && !('chapters' in item)) ? (
@@ -906,8 +906,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, User, Mic, MicOff, Volume2, VolumeX, Settings, X, Check, Upload, Copy, CheckCheck ,Sparkles,Info} from 'lucide-react';
 
 export default function ChatBot() {
-  const starter = "Hey there! Ready to learn something cool today? Ask me anything!";
-  const [messages, setMessages] = useState([{ role: 'assistant', content: starter, images: [] }]);
+  
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [subject, setSubject] = useState('maths');
@@ -939,6 +938,9 @@ export default function ChatBot() {
   // Copy state
   const [copiedMessageId, setCopiedMessageId] = useState(null);
 
+  //assessment mode
+  const [mode, setMode] = useState('tutor');
+
   const generateSessionId = () => {
     const newId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     sessionStorage.setItem('chat_session_id', newId);
@@ -946,6 +948,38 @@ export default function ChatBot() {
     console.log(`New session created: ${newId}`);
     return newId;
   };
+  
+  // integerated starter with assessment mode
+  const starter = (mode) => {
+    return mode === 'tutor'
+      ? "Hey there! Ready to learn something cool today? Ask me anything!"
+      : `Hey there! How was the ${subject}  class ? Wait for the Tutor to respond Shortly!`;
+  };
+  const [messages, setMessages] = useState([{ role: 'assistant', content: starter(mode), images: [] }]);
+
+   useEffect(() => {
+  setMessages([{ role: 'assistant', content: starter(mode), images: [] }]);
+  setShowChapters(true);
+
+  if (mode === 'tutor') {
+    // Tutor logic (same as before)
+    initialMessage(subject);
+  } else if (mode === 'assessment') {
+    fetch(`http://127.0.0.1:8000/assessment/get-initial-response/${subject}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data?.response) {
+          setMessages(prev => [
+            ...prev,
+            { role: 'assistant', content: data.response, images: [] }
+          ]);
+        }
+      })
+      .catch(err => console.error('Assessment init error:', err));
+  } else {
+    setChapter([]);
+  }
+}, [subject, mode]);
 
   const defaultPrompt = `# Math Coach for 7th Grade
       
@@ -1181,8 +1215,8 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
     }
   }, [subject]);
 
-  const local = false;
-  const API_URL = local ? 'http://localhost:8100' : 'https://schooldigitalised.cogniwide.com/api/sd';
+  const local = true;
+  const API_URL = local ? 'http://localhost:8000' : 'https://schooldigitalised.cogniwide.com/api/sd';
 
   const initialMessage = async (subject) => {
     const response = await fetch(`${API_URL}/tutor/get-initial-response/${subject}`);
@@ -1357,17 +1391,37 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
     let activeSessionId = sessionId || generateSessionId();
 
     try {
-      const res = await fetch(API_URL + '/tutor/ask', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      let apiUrl = '';
+      let body = {};
+      let headers = { 'Content-Type': 'application/json' };
+      let setchapters = true;
+
+      if (mode === 'assessment') {
+        setShowChapters(false);
+        setchapters = false;
+        apiUrl = API_URL + '/assessment/query';
+        body = {
+          session_id: activeSessionId,
+          question: messageText,
+          subject: subject,
+        };
+        setchapters = false;
+      } else {
+        apiUrl = API_URL + '/tutor/ask';
+        body = {
           session_id: activeSessionId,
           question: messageText,
           subject: subject,
           prompt: prompt,
           model: selectedModel,
           custom_prompt: useCustomPrompt ? customPrompt : defaultPrompt,
-        }),
+        };
+      }
+
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -1486,6 +1540,8 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
             </div>
           </div>
 
+          
+
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <input
@@ -1510,6 +1566,18 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
                 {loading ? "Uploading..." : "Upload"}
               </button>
             </div>
+
+            {/* for assessment and tutor mode selection */}
+            <select
+            value={mode}
+            onChange={(e) => setMode(e.target.value)}
+            className="px-4 py-2 rounded-full bg-white/20 backdrop-blur-sm text-black border-2 border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50 transition-all duration-300 shadow-lg hover:bg-white/30 text-sm font-medium cursor-pointer"
+          >
+            <option value="tutor" className="bg-purple-600 text-black">🎓 AI Tutor</option>
+            <option value="assessment" className="bg-purple-600 text-black">🧠 AI Assessment</option>
+          </select>
+
+
 
             <select
               value={subject}
@@ -1642,7 +1710,7 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
             </div>
           ))}
 
-          {showChapters && Array.isArray(chapter) && chapter.length > 0 && (
+          {showChapters && mode !== 'assessment' && Array.isArray(chapter) && chapter.length > 0 && (
             <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
               <h3 className="text-sm font-semibold text-gray-700 mb-3">Select a topic to begin:</h3>
               {chapter.every(item => 'title' in item && !('chapters' in item)) ? (
