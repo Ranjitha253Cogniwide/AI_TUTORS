@@ -1743,7 +1743,7 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
                       </button>
                       <button
                         onClick={() => speakText(msg.content, idx)}
-                        className="p-1.5 rounded hover:bg-gray-100 transition-colors bg-white"
+                        className="p-1.5 rounded hover:bg-gray-100 transition-colors bg-white text-white"
                         title={isSpeaking && speakingMessageId === idx ? "Stop speaking" : "Read aloud"}
                       >
                         {isSpeaking && speakingMessageId === idx ? (
