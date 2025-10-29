@@ -1019,7 +1019,7 @@
 // }
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, User, Mic, MicOff, Volume2, VolumeX, Settings, X, Check, Upload, Copy, CheckCheck } from 'lucide-react';
+import { Send, User, Mic, MicOff, Volume2, VolumeX, Settings, X, Check, Upload, Copy, CheckCheck,Sparkles} from 'lucide-react';
 
 export default function ChatBot() {
   const starter = "Hey there! Ready to learn something cool today? Ask me anything!";
@@ -1615,7 +1615,7 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
         <div className="px-6 py-4 flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-              <User className="w-6 h-6 text-white" />
+              <Sparkles className="w-6 h-6 text-white" />
             </div>
             <div>
               <h1 className="text-xl font-semibold text-gray-900">AI Tutor Assistant</h1>
@@ -1694,7 +1694,7 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
             <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {msg.role === 'assistant' && (
                 <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
-                  <User className="w-5 h-5 text-white" />
+                  <Sparkles className="w-5 h-5 text-white" />
                 </div>
               )}
 
