@@ -1732,7 +1732,7 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
                     <div className="absolute bottom-2 right-2 flex items-center gap-1">
                       <button
                         onClick={() => copyMessage(msg.content, idx)}
-                        className="p-1.5 rounded hover:bg-gray-100 transition-colors"
+                        className="p-1.5 rounded hover:bg-gray-100 transition-colors bg-white"
                         title="Copy message"
                       >
                         {copiedMessageId === idx ? (
@@ -1743,7 +1743,7 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
                       </button>
                       <button
                         onClick={() => speakText(msg.content, idx)}
-                        className="p-1.5 rounded hover:bg-gray-100 transition-colors"
+                        className="p-1.5 rounded hover:bg-gray-100 transition-colors text-white"
                         title={isSpeaking && speakingMessageId === idx ? "Stop speaking" : "Read aloud"}
                       >
                         {isSpeaking && speakingMessageId === idx ? (
@@ -1860,7 +1860,7 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
 
               <button
                 onClick={() => setShowModelInfo(!showModelInfo)}
-                className="text-blue-600 hover:text-blue-700 underline"
+                className="text-blue-600 hover:text-blue-700 underline bg-white"
               >
                 Model Info
               </button>
@@ -1929,7 +1929,7 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
               onKeyDown={handleKeyDown}
               placeholder="Type your message or use voice input..."
               disabled={isLoading}
-              className="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:cursor-not-allowed text-gray-800"
+              className="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:cursor-not-allowed text-gray-800 bg-white"
             />
 
             <button
