@@ -1208,12 +1208,7 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
     });
   };
 
-  useEffect(() => {
-    if (!isPdfMode) {
-      sendMessage('clear');
-      initialMessage(subject);
-    }
-  }, [subject]);
+
 
   const local = true;
   const API_URL = local ? 'http://localhost:8000' : 'https://schooldigitalised.cogniwide.com/api/sd';
@@ -1454,7 +1449,7 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
       }
 
       if (data.type === 'cleared') {
-        setMessages([{ role: 'assistant', content: starter, images: [] }]);
+        setMessages([{ role: 'assistant', content: starter(mode), images: [] }]);
         setShowChapters(true);
         handleResetChat();
       }
