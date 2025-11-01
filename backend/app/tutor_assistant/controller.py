@@ -77,6 +77,7 @@ async def ask_question(request: QueryRequest):
     # Remove ```json ... ``` wrappers
     cleaned_json_str = re.sub(r'```json\s*([\s\S]*?)\s*```', r'\1', result_text)
 
+
     try:
         result = json.loads(cleaned_json_str)
         parsed_result = {
