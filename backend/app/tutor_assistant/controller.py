@@ -63,6 +63,7 @@ async def ask_question(request: QueryRequest):
     # Handle dict response
     if isinstance(result_raw, dict):
         result_text = result_raw.get("answer", "")
+        images = result_raw.get("images", [])
         meta_data = {
             "input_tokens": result_raw.get("input_tokens", 0),
             "output_tokens": result_raw.get("output_tokens", 0),
@@ -70,6 +71,7 @@ async def ask_question(request: QueryRequest):
         }
     else:
         result_text = str(result_raw)
+        images = []
         meta_data = {"input_tokens": 0, "output_tokens": 0, "total_cost": 0.0}
 
     # Remove ```json ... ``` wrappers
@@ -81,6 +83,7 @@ async def ask_question(request: QueryRequest):
             "response": result.get("answer", "").strip(),
             "correct_answer": result.get("correct_answer", False),
             "quick_replies": result.get("quick_replies", []),
+            "images": images,
             "input_tokens": meta_data["input_tokens"],
             "output_tokens": meta_data["output_tokens"],
             "total_cost": meta_data["total_cost"]
@@ -91,6 +94,7 @@ async def ask_question(request: QueryRequest):
             "response": result_text.strip(),
             "correct_answer": False,
             "quick_replies": [],
+            "images": images,
             **meta_data
         }
 

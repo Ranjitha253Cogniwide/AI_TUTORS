@@ -234,6 +234,10 @@ class RetrievalChain:
         if not self.retriever:
             self.get_documents()
 
+        # Get relevant documents first to extract images from context
+        relevant_docs = self.retriever.get_relevant_documents(user_input)
+        context_images = self.extract_images_from_context(relevant_docs)
+
         chain = self.build_conversational_chain()
         response = await chain.ainvoke({
             "question": user_input,
@@ -244,12 +248,63 @@ class RetrievalChain:
         print("output_tokens", self.token_handler.output_tokens)
         print("Total Cost:", self.token_handler.get_total_cost(self.model))
 
+        # Extract images from the response content
+        response_images = self.extract_images_from_response(response["answer"])
+        
+        # Combine context images and response images
+        all_images = list(set(context_images + response_images))
+        
         result = {
             "answer": response["answer"],
+            "images": all_images,
             "input_tokens": self.token_handler.input_tokens,
             "output_tokens": self.token_handler.output_tokens,
             "total_cost": self.token_handler.get_total_cost(self.model)
         }
 
         return result
+
+    def extract_images_from_response(self, response_text: str):
+        """Extract image URLs from the response text and context"""
+        import re
+        
+        # Pattern to match img tags with src attributes
+        img_pattern = r'<img[^>]+src=[\'"]([^\'"]+)[\'"][^>]*/?>'
+        matches = re.findall(img_pattern, response_text, re.IGNORECASE)
+        
+        # Also check for markdown image patterns that might not have been converted
+        markdown_pattern = r'!\[.*?\]\(images/([^)]+)\)'
+        markdown_matches = re.findall(markdown_pattern, response_text)
+        
+        # Convert markdown matches to full URLs
+        for filename in markdown_matches:
+            full_url = f"http://127.0.0.1:8000/app/tutor_assistant/output/images/{filename}"
+            if full_url not in matches:
+                matches.append(full_url)
+        
+        return matches
+
+    def extract_images_from_context(self, context_docs):
+        """Extract images from the retrieved context documents"""
+        import re
+        images = []
+        
+        for doc in context_docs:
+            # Look for markdown image references in the document content
+            markdown_pattern = r'!\[.*?\]\(images/([^)]+)\)'
+            markdown_matches = re.findall(markdown_pattern, doc.page_content)
+            
+            for filename in markdown_matches:
+                full_url = f"http://127.0.0.1:8000/app/tutor_assistant/output/images/{filename}"
+                if full_url not in images:
+                    images.append(full_url)
+        
+        return images
+
+    def get_important_topics(self, query: str):
+        """Get important topics related to the query"""
+        if not self.retriever:
+            self.get_documents()
+        
+        return self.retriever.get_relevant_documents(query)
 

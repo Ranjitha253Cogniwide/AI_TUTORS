@@ -430,6 +430,7 @@ def get_system_prompt_maths():
       
        ## Rules
        - Explain the concepts as explaining to a 7th grade student in Indian CBSE Board School.
+       - ALWAYS include relevant images when they are available in the context - images are crucial for understanding mathematical concepts.
        - Already covered classes and topics:
  
            1. What topics comprise the syllabus for Class 1 maths in CBSE 2025-26?
@@ -472,11 +473,16 @@ def get_system_prompt_maths():
       - After asking a question, if the student answers incorrectly, correct them gracefully with an example.
  
       ##IMPORTANT RULE:
-        -If the CONTEXT contains a images/ or diagrams reference like:
-          ![](images/image_name.jpg)
-        -You must convert it into the following HTML image format and include it in the answer:
-          <img src='http://127.0.0.1:8100/app/tutor_assistant/output/images/<image_name>.jpg'>
-        -Do this for each image reference found. Do not omit them. Always include converted image references in the final HTML output.
+        -If the CONTEXT contains any image reference in markdown format like:
+          ![](images/image_name.jpg) or ![alt text](images/image_name.jpg)
+        -You MUST convert it into the following HTML image format and include it in the answer:
+          <img src='http://127.0.0.1:8000/app/tutor_assistant/output/images/image_name.jpg' alt='Mathematical diagram' class='max-w-full rounded-lg shadow-sm'/>
+        -Do this for EACH image reference found in the context
+        -Do NOT skip any images - they are crucial for understanding
+        -Always include ALL converted image references in the final HTML output
+        -Keep the original image filename in the URL
+        -Make sure image tags are properly closed with />
+        -Use single quotes for HTML attributes
  
       CONTEXT: {context}
      

@@ -981,7 +981,7 @@ export default function ChatBot() {
   }
 }, [subject, mode]);
 
-  const defaultPrompt = `# Math Coach for 7th Grade
+const defaultPrompt = `# Math Coach for 7th Grade
       
 You are an insightful Maths Coach for 7th-grade students.
 
@@ -1040,22 +1040,27 @@ Note: Consider 0 and 1 as numbers not as boolean values.
   - After giving the final answer, ask the student if they want to explore more, else close the conversation.
   - When explaining math problems, always provide step-by-step solutions with examples. The example should be in a hint tag: <hint>Example: [example]</hint>.
   - After asking a question, if the student answers incorrectly, correct them gracefully with an example.
+  
+  ##IMPORTANT RULE:
+    -If the CONTEXT contains any image reference in markdown format like:
+          ![](images/image_name.jpg) or ![alt text](images/image_name.jpg)
+    -You MUST convert it into the following HTML image format:
+          <img src="http://127.0.0.1:8000/app/tutor_assistant/output/images/image_name.jpg" alt="Mathematical diagram" class="max-w-full rounded-lg shadow-sm"/>
+    -Do this for EACH image reference found in the context
+    -Do NOT skip any images - they are crucial for understanding
+    -Always include ALL converted image references in the HTML output
+    -Keep the original image filename in the URL
+    -Make sure image tags are properly closed with />
+    -Use double quotes for HTML attributes
 
-##IMPORTANT RULE:
-  -If the CONTEXT contains a images/ or diagrams reference like:
-    ![](images/image_name.jpg)
-  -You must convert it into the following HTML image format and include it in the answer:
-    <img src='http://127.0.0.1:8100/app/tutor_assistant/output/images/<image_name>.jpg'>
-  -Do this for each image reference found. Do not omit them. Always include converted image references in the final HTML output.
-
-CONTEXT: {context}
+   CONTEXT: {context}
  
 ## Response Format
 \`\`\`json
-{{
-  "answer": "[Your response in html format]",
-  "correct_answer": true/false, make it true only user answers correctly then reset it for follow up question.
-  "quick_replies": [Example: 'I understand', 'I don\\'t know','Explain it more','Give me an example','Hinglish mein samjha dijiye'] max it should be 6.
+    {{
+  "answer": "<Your response in html format with bold, italics, bullets, spacing, and <br> for line breaks. Include <img> tags if needed>",
+  "correct_answer": true/false,  
+  "quick_replies": ["I understand", "I don't know", "Explain it more"]
 }}
 \`\`\`
 
@@ -1065,6 +1070,7 @@ CONTEXT: {context}
   - Use \`<b></b>\` for emphasis.
   - Use paragraphs by having double line breaks.
 - Use the \`<hint>\` tag for hints and examples, but the content inside the tag should be in html.
+
 Example of a hint in html:
 \`\`\`
 <hint>
@@ -1073,6 +1079,7 @@ Example of a hint in html:
 \`\`\`
 
 Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
+
 
   const models = {
     'azure/gpt-4o-mini': {
@@ -1425,7 +1432,23 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
       }
 
       const data = await res.json();
+      console.log('Backend Response:', data);
       const images = Array.isArray(data.images) ? data.images : [];
+      console.log('Images found:', images.length > 0 ? 'true - ' + images.length + ' images' : 'false');
+      
+      // Log the full response structure
+      console.log('Response structure:', {
+        hasImages: 'images' in data,
+        imageCount: Array.isArray(data.images) ? data.images.length : 0,
+        hasImageInContent: data.response?.includes('![') || data.response?.includes('<img'),
+        responseType: typeof data.response
+      });
+      
+      const quickReplies = Array.isArray(data.quick_replies) && data.quick_replies.length > 0 
+        ? data.quick_replies 
+        : data.response && typeof data.response === 'string' && data.response.includes('"quick_replies"')
+          ? JSON.parse(data.response.match(/\{[\s\S]*\}/)[0]).quick_replies || []
+          : [];
 
       const assistantMessage = {
         role: 'assistant',
@@ -1436,7 +1459,7 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
           ).replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')),
         images: images,
         type: data.correct_answer,
-        quick_replies: Array.isArray(data.quick_replies) ? data.quick_replies : [],
+        quick_replies: quickReplies,
         inputTokens: data.input_tokens,
         outputTokens: data.output_tokens,
         totalCost: data.total_cost,
@@ -1649,10 +1672,17 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
                     ? 'bg-green-50 border border-green-200 text-gray-800'
                     : 'bg-white border border-gray-200 text-gray-800 shadow-sm'
                 }`}>
-                  <div
+                  <div 
                     className="text-sm leading-relaxed pr-16"
                     dangerouslySetInnerHTML={{ __html: msg.content }}
                   />
+                  {msg.images && msg.images.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {msg.images.map((img, imgIdx) => (
+                        <img key={imgIdx} src={img} alt="Diagram" className="max-w-full rounded-lg shadow-sm" />
+                      ))}
+                    </div>
+                  )}
 
                   {msg.role === 'assistant' && (
                     <div className="absolute bottom-2 right-2 flex items-center gap-1">
@@ -1851,7 +1881,7 @@ Remember: You are a math coach for 7th graders. Make it engaging and clear!`;
               onKeyDown={handleKeyDown}
               placeholder="Type your message or use voice input..."
               disabled={isLoading}
-              className="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:cursor-not-allowed text-gray-800 bg-white text-black"
+              className="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:cursor-not-allowed text-gray-800 bg-white"
             />
 
             <button
